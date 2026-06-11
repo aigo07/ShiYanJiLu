@@ -15,6 +15,10 @@ Desktop.ini
 # Cursor local project state
 .cursor/
 
+# --- Local datasets / files not for git ---
+raw_data/
+data/
+
 # --- Secrets / local env ---
 .env
 .env.*

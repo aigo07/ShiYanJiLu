@@ -1,0 +1,60 @@
+# --- OS / Editor ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Cursor local project state
+.cursor/
+
+# --- Secrets / local env ---
+.env
+.env.*
+!.env.example
+
+# This file currently contains credentials; keep it local.
+TODO.md
+
+# --- Python / FastAPI ---
+__pycache__/
+*.py[cod]
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.python-version
+
+# Virtualenvs
+.venv/
+backend/.venv/
+
+# Logs
+logs/
+backend/logs/
+*.log
+
+# --- Node / Vite / React ---
+node_modules/
+frontend/node_modules/
+ops/proxy/node_modules/
+
+dist/
+frontend/dist/
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Vite cache
+frontend/node_modules/.vite/
+

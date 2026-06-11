@@ -1,0 +1,28 @@
+/*
+  Minimal global reset.
+  App styling lives in src/app/appShell.css (light theme).
+*/
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  min-height: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}

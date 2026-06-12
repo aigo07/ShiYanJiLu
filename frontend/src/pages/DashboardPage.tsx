@@ -1,24 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ApiError, apiGet } from '../lib/api'
+import { ApiError, getDashboardStats } from '../lib/data'
 import { PieChart } from '../components/PieChart'
-
-type TopItem = { curing_agent_id: number; name: string; count: number }
-type DashboardStats = {
-  curing_agents_a_top: TopItem[]
-  curing_agents_a_other_count: number
-  curing_agents_b_top: TopItem[]
-  curing_agents_b_other_count: number
-  ongoing_experiments_count: number
-  completed_experiments_count: number
-  new_experiments_this_week_count: number
-}
+import type { DashboardStats } from '../lib/types'
 
 function humanizeApiError(e: unknown): string {
   if (!(e instanceof ApiError)) return String(e)
-  const d: any = e.detail
+  const d = e.detail as unknown
   if (typeof d === 'string') return d
-  if (d && typeof d === 'object' && 'detail' in d) return String((d as any).detail)
+  if (d && typeof d === 'object' && 'detail' in d) return String((d as { detail?: unknown }).detail)
   return `HTTP ${e.status}`
 }
 
@@ -33,8 +23,7 @@ export function DashboardPage() {
     setLoading(true)
     setErr(null)
     try {
-      const params = new URLSearchParams({ completed_days: String(completedDays), top_n: '5' })
-      const s = await apiGet<DashboardStats>(`/stats/dashboard?${params.toString()}`)
+      const s = await getDashboardStats(completedDays, 5)
       setStats(s)
     } catch (e) {
       setErr(humanizeApiError(e))

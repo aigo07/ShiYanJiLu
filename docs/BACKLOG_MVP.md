@@ -9,12 +9,12 @@
 
 ## P0（必须）
 
-### P0-1 工程骨架与本地启动（前后端+数据库）
-- **交付**：项目可在本机一键启动（开发模式），包含前端、后端、数据库（推荐 PostgreSQL）。
+### P0-1 工程骨架与本地启动（前端 + Supabase）
+- **交付**：项目可在本机启动开发模式，包含 Vite 前端与 Supabase local。
 - **验收**：
   - 新人按 README 操作可在 30 分钟内跑起来
-  - 后端健康检查接口返回 OK
-  - 前端能访问到后端（最小 API 调通）
+  - `supabase db reset` 可重建本地 schema、RLS、RPC、seed
+  - 前端能通过 Supabase Auth/Data API/RPC 读写数据
 - **依赖/备注**：无
 
 ### P0-2 数据库 Schema：Experiment / Record / CuringAgent（含“未知”）
@@ -27,22 +27,22 @@
   - 删除数据库后重建+seed，结果一致
 - **依赖/备注**：种子数据来源 `raw_data/catalysts.json`
 
-### P0-3 后端 API：Experiment CRUD
-- **交付**：创建/查询/更新/删除 Experiment 的 API。
+### P0-3 Supabase 数据访问：Experiment CRUD
+- **交付**：通过 Supabase table/RPC 创建、查询、更新、删除 Experiment。
 - **验收**：
   - 可创建 Experiment，必填字段缺失返回 4xx + 明确错误
   - 列表查询支持按 `customer_name/project_no/silicone_model/time_range` 过滤（至少 2 个条件）
   - 删除 Experiment 时关联的 Record 处理策略明确（推荐：级联删除或软删除）
 - **依赖/备注**：依赖 P0-2
 
-### P0-4 后端 API：Record CRUD + 强校验（防前端绕过）
-- **交付**：在某个 Experiment 下新增/修改/删除 Record 的 API，并在后端做强校验：
+### P0-4 Supabase RPC/RLS：Record CRUD + 强校验（防前端绕过）
+- **交付**：在某个 Experiment 下新增/修改/删除 Record，并在数据库层做强校验：
   - `curing_agent_a_id`、`curing_agent_b_id` 必填（未知时用“未知”）
   - `ratio_a_pct`、`ratio_b_pct` 取值 0–100，且 `A+B<100`
   - `bubble_grade` 为整数 0–5
   - `t10/t90` 解析后存为 `t10_sec/t90_sec`（整数秒；可配置上限 ≤300）
 - **验收**：
-  - 直接用接口提交非法比例（如 A=60,B=50）会被拒绝（4xx）
+  - 直接绕过 UI 提交非法比例（如 A=60,B=50）会被数据库/RPC 拒绝
   - 提交 `t90="0:53"` 能成功并存成 `53`
   - 提交无法解析的 `t10` 返回 4xx 并提示输入格式
 - **依赖/备注**：依赖 P0-2；T10/T90 解析规则需单测覆盖
@@ -89,7 +89,7 @@
 - **验收**：
   - 新建一个从未出现的客户名，保存后再次新建 Experiment 时可在下拉中搜索到
   - 胶型号同理
-- **依赖/备注**：需要后端提供“distinct 值”接口或独立维表（实现方案由研发决定）
+- **依赖/备注**：需要 Supabase RPC 提供“distinct 值”或独立维表（实现方案由研发决定）
 
 ### P0-10 Record 检索页（事实表）+ CSV 导出
 - **交付**：
@@ -98,7 +98,7 @@
 - **验收**：
   - 筛选条件组合生效且结果正确（至少覆盖 5 个组合用例）
   - CSV 字段固定，包含 Experiment 关键 meta + Record 字段
-- **依赖/备注**：后端需要可分页查询与导出接口（可同一套过滤参数）
+- **依赖/备注**：Supabase RPC 需要提供可分页查询与导出 rowset（可同一套过滤参数）
 
 ---
 
@@ -109,7 +109,7 @@
 - **验收**：
   - 不填覆盖时，列表/详情显示继承值
   - 填了覆盖时，仅该 Record 使用覆盖值
-- **依赖/备注**：依赖 P0-7；后端字段已预留
+- **依赖/备注**：依赖 P0-7；数据库字段已预留
 
 ### P1-2 字典页：硫化剂 CRUD（最小可用）
 - **交付**：硫化剂列表/新增/编辑/停用（配方条目可后置）。

@@ -1,9 +1,7 @@
 import type { FormEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
-import { ApiError, apiGet, apiPost } from '../lib/api'
-import type { CuringAgent } from '../lib/types'
-
-type Material = { id: number; category: string; name: string }
+import { ApiError, createCuringAgent, listMaterials } from '../lib/data'
+import type { CuringAgent, Material } from '../lib/types'
 
 type CompositionRow = { material_id: string; mass_pct: string }
 
@@ -26,12 +24,12 @@ function round1(n: number): number {
 
 function humanizeApiError(e: unknown, action: string): string {
   if (!(e instanceof ApiError)) return `${action}失败：${String(e)}`
-  const d: any = e.detail
+  const d = e.detail as unknown
   const rawDetail =
     typeof d === 'string'
       ? d
       : d && typeof d === 'object' && 'detail' in d
-        ? (d.detail as unknown)
+        ? (d as { detail?: unknown }).detail
         : d
   if (Array.isArray(rawDetail)) return `${action}失败：输入有误，请检查填写。`
   if (typeof rawDetail === 'string' && rawDetail) return `${action}失败：${rawDetail}`
@@ -76,7 +74,7 @@ export function CuringAgentModal(props: Props) {
     setComposition([{ material_id: '', mass_pct: '' }])
     ;(async () => {
       try {
-        const mats = await apiGet<Material[]>('/materials?limit=200&offset=0')
+        const mats = await listMaterials(200, 0)
         setMaterials(mats)
       } catch (e) {
         setErr(humanizeApiError(e, '加载物料'))
@@ -108,7 +106,7 @@ export function CuringAgentModal(props: Props) {
       if (note.trim() !== '') payload.note = note.trim()
       const comp = buildCompositionPayload(composition)
       if (comp !== null) payload.composition = comp
-      const created = await apiPost<CuringAgent>('/curing-agents', payload)
+      const created = await createCuringAgent(payload)
       onCreated(created)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)

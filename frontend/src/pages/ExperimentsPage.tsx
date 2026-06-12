@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ApiError, apiGet } from '../lib/api'
+import { ApiError, listCuringAgents, listExperiments, listProcessTypes } from '../lib/data'
+import { downloadExperimentsRecordsZip, downloadRecordsCsv } from '../lib/exportFiles'
 import { getTableDensity, setTableDensity, type TableDensity } from '../lib/prefs'
 import type { CuringAgent, Experiment, ProcessType } from '../lib/types'
 import { RecordModal } from '../components/RecordModal'
@@ -58,7 +59,6 @@ export function ExperimentsPage() {
     setStatus(params.get('status') ?? '')
     setCuringAgentId(params.get('curing_agent_id') ?? '')
     setQ(params.get('q') ?? '')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search])
 
   async function load() {
@@ -66,17 +66,19 @@ export function ExperimentsPage() {
     setErr(null)
     try {
       const [pts, cas] = await Promise.all([
-        apiGet<ProcessType[]>('/process-types'),
-        apiGet<CuringAgent[]>('/curing-agents?limit=200&offset=0'),
+        listProcessTypes(),
+        listCuringAgents(200, 0),
       ])
       setProcessTypes(pts)
       setCuringAgents(cas)
-      const params = new URLSearchParams({ limit: String(pageSize), offset: '0' })
-      if (processTypeId) params.set('process_type_id', processTypeId)
-      if (status) params.set('status', status)
-      if (curingAgentId) params.set('curing_agent_id', curingAgentId)
-      if (q.trim()) params.set('q', q.trim())
-      const exps = await apiGet<Experiment[]>(`/experiments?${params.toString()}`)
+      const exps = await listExperiments({
+        limit: pageSize,
+        offset: 0,
+        process_type_id: processTypeId ? Number(processTypeId) : null,
+        status: status || null,
+        curing_agent_id: curingAgentId ? Number(curingAgentId) : null,
+        q: q.trim() || null,
+      })
       setItems(exps)
       setHasMore(exps.length === pageSize)
     } catch (e) {
@@ -93,12 +95,14 @@ export function ExperimentsPage() {
     setErr(null)
     try {
       const offset = items.length
-      const params = new URLSearchParams({ limit: String(pageSize), offset: String(offset) })
-      if (processTypeId) params.set('process_type_id', processTypeId)
-      if (status) params.set('status', status)
-      if (curingAgentId) params.set('curing_agent_id', curingAgentId)
-      if (q.trim()) params.set('q', q.trim())
-      const exps = await apiGet<Experiment[]>(`/experiments?${params.toString()}`)
+      const exps = await listExperiments({
+        limit: pageSize,
+        offset,
+        process_type_id: processTypeId ? Number(processTypeId) : null,
+        status: status || null,
+        curing_agent_id: curingAgentId ? Number(curingAgentId) : null,
+        q: q.trim() || null,
+      })
       setItems((prev) => [...prev, ...exps])
       setHasMore(exps.length === pageSize)
     } catch (e) {
@@ -110,34 +114,16 @@ export function ExperimentsPage() {
   }
 
   async function exportRecordsCsv() {
-    const params = new URLSearchParams()
-    params.set('limit', '20000')
-    if (processTypeId) params.set('process_type_id', processTypeId)
-    if (status) params.set('status', status)
-    if (curingAgentId) params.set('curing_agent_id', curingAgentId)
     setErr(null)
     setSuccess(null)
     setExporting(true)
     try {
-      const url = `/api/exports/records.csv?${params.toString()}`
-      const res = await fetch(url)
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        throw new Error(text || `导出失败（HTTP ${res.status}）`)
-      }
-      const blob = await res.blob()
-      // Force Chinese filename (consistent UX regardless of server/proxy headers)
-      const filename = `记录导出_${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}.csv`
-
-      const a = document.createElement('a')
-      const objectUrl = URL.createObjectURL(blob)
-      a.href = objectUrl
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(objectUrl)
-
+      await downloadRecordsCsv({
+        limit: 20000,
+        process_type_id: processTypeId ? Number(processTypeId) : null,
+        status: status || null,
+        curing_agent_id: curingAgentId ? Number(curingAgentId) : null,
+      })
       setSuccess('CSV 已下载')
       setTimeout(() => setSuccess(null), 2000)
     } catch (e) {
@@ -148,33 +134,16 @@ export function ExperimentsPage() {
   }
 
   async function exportExperimentsAndRecordsZip() {
-    const params = new URLSearchParams()
-    params.set('limit', '20000')
-    if (processTypeId) params.set('process_type_id', processTypeId)
-    if (status) params.set('status', status)
-    if (curingAgentId) params.set('curing_agent_id', curingAgentId)
     setErr(null)
     setSuccess(null)
     setExportingZip(true)
     try {
-      const url = `/api/exports/experiments_records.zip?${params.toString()}`
-      const res = await fetch(url)
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        throw new Error(text || `导出失败（HTTP ${res.status}）`)
-      }
-      const blob = await res.blob()
-      const filename = `实验+记录导出_${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}.zip`
-
-      const a = document.createElement('a')
-      const objectUrl = URL.createObjectURL(blob)
-      a.href = objectUrl
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(objectUrl)
-
+      await downloadExperimentsRecordsZip({
+        limit: 20000,
+        process_type_id: processTypeId ? Number(processTypeId) : null,
+        status: status || null,
+        curing_agent_id: curingAgentId ? Number(curingAgentId) : null,
+      })
       setSuccess('ZIP 已下载')
       setTimeout(() => setSuccess(null), 2000)
     } catch (e) {

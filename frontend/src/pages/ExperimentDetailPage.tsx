@@ -1,7 +1,17 @@
 import type { FormEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ApiError, apiDelete, apiGet, apiPatch } from '../lib/api'
+import {
+  ApiError,
+  deleteExperiment as deleteExperimentById,
+  deleteRecord,
+  getExperimentSuggestions,
+  getExperimentWithRecords,
+  listCuringAgents,
+  listProcessTypes,
+  updateExperiment,
+  updateRecord,
+} from '../lib/data'
 import type { CuringAgent, Experiment, ProcessType, Record as TrialRecord } from '../lib/types'
 import { RecordModal } from '../components/RecordModal'
 import { ConfirmModal } from '../components/ConfirmModal'
@@ -78,10 +88,10 @@ export function ExperimentDetailPage() {
     setErr(null)
     try {
       const [pts, cas, e, sugg] = await Promise.all([
-        apiGet<ProcessType[]>('/process-types'),
-        apiGet<CuringAgent[]>('/curing-agents?limit=200&offset=0'),
-        apiGet<ExperimentWithRecords>(`/experiments/${experimentId}?include_records=true`),
-        apiGet<{ customers: string[]; silicone_models: string[] }>('/experiment-suggestions?limit=200'),
+        listProcessTypes(),
+        listCuringAgents(200, 0),
+        getExperimentWithRecords(experimentId),
+        getExperimentSuggestions(200),
       ])
       setProcessTypes(pts)
       setCuringAgents(cas)
@@ -138,7 +148,7 @@ export function ExperimentDetailPage() {
     setSuccess(null)
     setDeleting(true)
     try {
-      await apiDelete(`/experiments/${exp.id}`)
+      await deleteExperimentById(exp.id)
       nav('/experiments')
     } catch (e) {
       if (e instanceof ApiError) setErr(String(e.detail ?? e.message ?? '请求失败'))
@@ -206,15 +216,15 @@ export function ExperimentDetailPage() {
       // 1) patch edited records (skip those marked for delete)
       for (const rid of editsIds) {
         if (draftDeletes[rid]) continue
-        await apiPatch(`/records/${rid}`, draftEdits[rid])
+        await updateRecord(rid, draftEdits[rid])
       }
       // 2) delete records
       for (const rid of deleteIds) {
-        await apiDelete(`/records/${rid}`)
+        await deleteRecord(rid)
       }
       // 3) update final record if changed
       if (finalChanged) {
-        await apiPatch(`/experiments/${exp.id}`, { final_record_id: draftFinalRecordId })
+        await updateExperiment(exp.id, { final_record_id: draftFinalRecordId })
       }
       setSuccess('记录修改已提交')
       setTimeout(() => setSuccess(null), 2000)
@@ -264,7 +274,7 @@ export function ExperimentDetailPage() {
         end_at: (fEndAt.trim() || fStartAt.trim()),
         note: fNote.trim() === '' ? null : fNote.trim(),
       }
-      await apiPatch(`/experiments/${exp.id}`, payload)
+      await updateExperiment(exp.id, payload)
       setSuccess('实验已保存')
       setTimeout(() => setSuccess(null), 2000)
       setExpEditMode(false)
@@ -286,7 +296,7 @@ export function ExperimentDetailPage() {
     setStatusSaving(true)
     try {
       const endAt = next === '已结束' ? new Date().toISOString() : null
-      await apiPatch(`/experiments/${exp.id}`, { status: next, end_at: endAt })
+      await updateExperiment(exp.id, { status: next, end_at: endAt })
       setExp((x) => (x ? { ...x, status: next, end_at: endAt } : x))
       setSuccess(`状态已更新：${prev} → ${next}`)
       setTimeout(() => setSuccess(null), 2000)
@@ -611,7 +621,7 @@ export function ExperimentDetailPage() {
                               style={{ marginLeft: 8 }}
                               onClick={() => {
                                 const merged = draftEdits[r.id]
-                                  ? ({ ...r, ...(draftEdits[r.id] as any) } as TrialRecord)
+                                  ? ({ ...r, ...(draftEdits[r.id] as Partial<TrialRecord>) } as TrialRecord)
                                   : r
                                 setEditing(merged)
                                 setEditOpen(true)

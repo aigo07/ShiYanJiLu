@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ApiError, apiDelete, apiGet, apiPatch } from '../lib/api'
+import { ApiError, deleteCuringAgent, listCuringAgents, listMaterials, updateCuringAgent } from '../lib/data'
 import { getTableDensity, type TableDensity } from '../lib/prefs'
-import type { CuringAgent } from '../lib/types'
+import type { CuringAgent, Material } from '../lib/types'
 import { CuringAgentModal } from '../components/CuringAgentModal'
-
-type Material = {
-  id: number
-  category: string
-  name: string
-}
 
 type CompositionRow = {
   material_id: string // keep as string for select/input
@@ -53,13 +47,13 @@ export function CuringAgentsPage() {
   function humanizeApiError(e: unknown, action: string): string {
     if (!(e instanceof ApiError)) return `${action}失败：${String(e)}`
 
-    // FastAPI usually returns {detail: "..."} or {detail: [...]}
-    const d = e.detail as any
+    // Supabase errors are normalized to the same detail shape used by the UI.
+    const d = e.detail as unknown
     const rawDetail =
       typeof d === 'string'
         ? d
         : d && typeof d === 'object' && 'detail' in d
-          ? (d.detail as unknown)
+          ? (d as { detail?: unknown }).detail
           : d
 
     const detailText =
@@ -99,8 +93,8 @@ export function CuringAgentsPage() {
     setErr(null)
     try {
       const [list, mats] = await Promise.all([
-        apiGet<CuringAgent[]>('/curing-agents?limit=200&offset=0'),
-        apiGet<Material[]>('/materials?limit=200&offset=0'),
+        listCuringAgents(200, 0),
+        listMaterials(200, 0),
       ])
       setItems(list)
       setMaterials(mats)
@@ -113,6 +107,7 @@ export function CuringAgentsPage() {
 
   useEffect(() => {
     void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function buildCompositionPayload(rows: CompositionRow[]): Array<{ material_id: number; mass_pct: number }> | null {
@@ -165,7 +160,7 @@ export function CuringAgentsPage() {
       payload.default_ratio = editDefaultRatio.trim() === '' ? null : Number(editDefaultRatio)
       payload.note = editNote.trim() === '' ? null : editNote.trim()
       payload.composition = buildCompositionPayload(editComposition)
-      const updated = await apiPatch<CuringAgent>(`/curing-agents/${editing.id}`, payload)
+      const updated = await updateCuringAgent(editing.id, payload)
       setItems((xs) => xs.map((x) => (x.id === updated.id ? updated : x)))
       setEditOpen(false)
       setEditing(null)
@@ -205,7 +200,7 @@ export function CuringAgentsPage() {
     setDeleteErr(null)
     setDeleteSaving(true)
     try {
-      await apiDelete(`/curing-agents/${deleting.id}`)
+      await deleteCuringAgent(deleting.id)
       setItems((xs) => xs.filter((x) => x.id !== deleting.id))
       setDeleteOpen(false)
       setDeleting(null)

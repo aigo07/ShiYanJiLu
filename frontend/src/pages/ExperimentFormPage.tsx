@@ -1,8 +1,8 @@
 import type { FormEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ApiError, apiGet, apiPatch, apiPost } from '../lib/api'
-import type { Experiment, ProcessType } from '../lib/types'
+import { ApiError, createExperiment, getExperiment, getExperimentSuggestions, listProcessTypes, updateExperiment } from '../lib/data'
+import type { ProcessType } from '../lib/types'
 
 function nowIso() {
   return new Date().toISOString()
@@ -10,12 +10,12 @@ function nowIso() {
 
 function humanizeApiError(e: unknown, action: string): string {
   if (!(e instanceof ApiError)) return `${action}失败：${String(e)}`
-  const d: any = e.detail
+  const d = e.detail as unknown
   const rawDetail =
     typeof d === 'string'
       ? d
       : d && typeof d === 'object' && 'detail' in d
-        ? (d.detail as unknown)
+        ? (d as { detail?: unknown }).detail
         : d
   if (Array.isArray(rawDetail)) return `${action}失败：输入有误，请检查填写。`
   if (typeof rawDetail === 'string' && rawDetail) return `${action}失败：${rawDetail}`
@@ -55,18 +55,18 @@ export function ExperimentFormPage() {
     ;(async () => {
       try {
         const [pts, sugg] = await Promise.all([
-          apiGet<ProcessType[]>('/process-types'),
-          apiGet<{ customers: string[]; silicone_models: string[] }>('/experiment-suggestions?limit=200'),
+          listProcessTypes(),
+          getExperimentSuggestions(200),
         ])
         setProcessTypes(pts)
         setCustomerSuggestions((sugg.customers?.length ? sugg.customers : ['其它']).filter(Boolean))
         setModelSuggestions((sugg.silicone_models?.length ? sugg.silicone_models : ['其它']).filter(Boolean))
         if (isEdit) {
-          const exp = await apiGet<Experiment>(`/experiments/${experimentId}`)
+          const exp = await getExperiment(experimentId)
           setCustomer(exp.customer_name)
           setProjectNo(exp.project_no)
           setModel(exp.silicone_model)
-          setGoal(exp.debug_goal)
+          setGoal(exp.debug_goal ?? '')
           setProcessTypeId(exp.process_type_id ? String(exp.process_type_id) : '')
           setStartAt(exp.start_at)
           // treat end_at equal to start_at as empty for display is too opinionated; show actual
@@ -113,12 +113,12 @@ export function ExperimentFormPage() {
         note: note.trim() === '' ? null : note.trim(),
       }
       if (isEdit) {
-        const updated = await apiPatch<Experiment>(`/experiments/${experimentId}`, payload)
+        const updated = await updateExperiment(experimentId, payload)
         setSuccess('保存成功')
         setTimeout(() => setSuccess(null), 1500)
         nav(`/experiments/${updated.id}`)
       } else {
-        const created = await apiPost<Experiment>('/experiments', payload)
+        const created = await createExperiment(payload)
         nav(`/experiments/${created.id}`)
       }
     } catch (e) {

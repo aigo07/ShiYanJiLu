@@ -23,11 +23,12 @@ data/
 .env
 .env.*
 !.env.example
+!.env.production.example
 
 # This file currently contains credentials; keep it local.
 TODO.md
 
-# --- Python / FastAPI ---
+# --- Python / local tooling ---
 __pycache__/
 *.py[cod]
 *.pyd
@@ -38,11 +39,9 @@ __pycache__/
 
 # Virtualenvs
 .venv/
-backend/.venv/
 
 # Logs
 logs/
-backend/logs/
 *.log
 
 # --- Node / Vite / React ---
@@ -60,4 +59,8 @@ lerna-debug.log*
 
 # Vite cache
 frontend/node_modules/.vite/
+
+# Supabase local CLI cache
+supabase/.temp/
+supabase/.branches/
 

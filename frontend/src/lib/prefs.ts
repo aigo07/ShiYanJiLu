@@ -1,6 +1,5 @@
 const SKIP_EXPERIMENT_DELETE_CONFIRM_KEY = 'skipExperimentDeleteConfirm'
 const TABLE_DENSITY_KEY = 'tableDensity'
-const CSRF_TOKEN_KEY = 'csrfToken'
 
 function safeGetItem(key: string): string | null {
   try {
@@ -48,19 +47,5 @@ export function getTableDensity(): TableDensity {
 
 export function setTableDensity(next: TableDensity): void {
   safeSetItem(TABLE_DENSITY_KEY, next)
-}
-
-export function getCsrfToken(): string | null {
-  const v = safeGetItem(CSRF_TOKEN_KEY)
-  return v && v.trim() ? v : null
-}
-
-export function setCsrfToken(token: string | null | undefined): void {
-  const t = (token ?? '').trim()
-  if (!t) {
-    safeRemoveItem(CSRF_TOKEN_KEY)
-    return
-  }
-  safeSetItem(CSRF_TOKEN_KEY, t)
 }
 

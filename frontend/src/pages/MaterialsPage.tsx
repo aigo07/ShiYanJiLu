@@ -1,22 +1,9 @@
 import type { FormEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
-import { ApiError, apiDelete, apiGet, apiPatch, apiPost } from '../lib/api'
+import { ApiError, createMaterial, deleteMaterial, listMaterials, updateMaterial } from '../lib/data'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { getTableDensity, type TableDensity } from '../lib/prefs'
-
-type Material = {
-  id: number
-  category: string
-  name: string
-  hydrogen_content: number | null
-  vinyl_content: number | null
-  volatile_min: number | null
-  volatile_max: number | null
-  avg_mw_wan: number | null
-  pt_ppm: number | null
-  created_at?: string
-  updated_at?: string
-}
+import type { Material } from '../lib/types'
 
 function fmtNum(v: number | null | undefined) {
   if (v == null) return '-'
@@ -61,12 +48,12 @@ export function MaterialsPage() {
 
   function humanizeApiError(e: unknown, action: string): string {
     if (!(e instanceof ApiError)) return `${action}失败：${String(e)}`
-    const d: any = e.detail
+    const d = e.detail as unknown
     const rawDetail =
       typeof d === 'string'
         ? d
         : d && typeof d === 'object' && 'detail' in d
-          ? (d.detail as unknown)
+          ? (d as { detail?: unknown }).detail
           : d
     if (Array.isArray(rawDetail)) return `${action}失败：输入有误，请检查填写。`
     if (typeof rawDetail === 'string' && rawDetail) return `${action}失败：${rawDetail}`
@@ -77,7 +64,7 @@ export function MaterialsPage() {
     setLoading(true)
     setErr(null)
     try {
-      const list = await apiGet<Material[]>('/materials?limit=200&offset=0')
+      const list = await listMaterials(200, 0)
       setItems(list)
     } catch (e) {
       setErr(humanizeApiError(e, '加载'))
@@ -88,6 +75,7 @@ export function MaterialsPage() {
 
   useEffect(() => {
     void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const filtered = useMemo(() => {
@@ -158,7 +146,7 @@ export function MaterialsPage() {
         avg_mw_wan: toNumOrNull(fMw),
         pt_ppm: toNumOrNull(fPt),
       }
-      const created = await apiPost<Material>('/materials', payload)
+      const created = await createMaterial(payload)
       setItems((xs) => [created, ...xs])
       setCreateOpen(false)
       setSuccess('保存成功')
@@ -191,7 +179,7 @@ export function MaterialsPage() {
         avg_mw_wan: toNumOrNull(fMw),
         pt_ppm: toNumOrNull(fPt),
       }
-      const updated = await apiPatch<Material>(`/materials/${editing.id}`, payload)
+      const updated = await updateMaterial(editing.id, payload)
       setItems((xs) => xs.map((x) => (x.id === updated.id ? updated : x)))
       setEditOpen(false)
       setEditing(null)
@@ -219,7 +207,7 @@ export function MaterialsPage() {
     setDeleteErr(null)
     setDeleteSaving(true)
     try {
-      await apiDelete(`/materials/${deleting.id}`)
+      await deleteMaterial(deleting.id)
       setItems((xs) => xs.filter((x) => x.id !== deleting.id))
       setDeleteOpen(false)
       setDeleting(null)

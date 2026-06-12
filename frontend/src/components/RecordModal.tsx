@@ -1,6 +1,15 @@
 import type { FormEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
-import { ApiError, apiGet, apiPatch, apiPost } from '../lib/api'
+import {
+  ApiError,
+  createExperiment,
+  createRecord,
+  getExperimentSuggestions,
+  listCuringAgents,
+  listExperiments,
+  listProcessTypes,
+  updateRecord,
+} from '../lib/data'
 import type { CuringAgent, Experiment, ProcessType, Record as TrialRecord } from '../lib/types'
 import { CuringAgentModal } from './CuringAgentModal'
 
@@ -27,12 +36,12 @@ type ExperimentCreatePayload = {
 
 function humanizeApiError(e: unknown, action: string): string {
   if (!(e instanceof ApiError)) return `${action}失败：${String(e)}`
-  const d: any = e.detail
+  const d = e.detail as unknown
   const rawDetail =
     typeof d === 'string'
       ? d
       : d && typeof d === 'object' && 'detail' in d
-        ? (d.detail as unknown)
+        ? (d as { detail?: unknown }).detail
         : d
   if (Array.isArray(rawDetail)) return `${action}失败：输入有误，请检查填写。`
   if (typeof rawDetail === 'string' && rawDetail) return `${action}失败：${rawDetail}`
@@ -136,10 +145,10 @@ export function RecordModal(props: Props) {
     ;(async () => {
       try {
         const [pts, cas, exps, sugg] = await Promise.all([
-          apiGet<ProcessType[]>('/process-types'),
-          apiGet<CuringAgent[]>('/curing-agents?limit=200&offset=0'),
-          apiGet<Experiment[]>('/experiments?limit=50&offset=0'),
-          apiGet<{ customers: string[]; silicone_models: string[] }>('/experiment-suggestions?limit=200'),
+          listProcessTypes(),
+          listCuringAgents(200, 0),
+          listExperiments({ limit: 50, offset: 0 }),
+          getExperimentSuggestions(200),
         ])
         setProcessTypes(pts)
         setCuringAgents(cas)
@@ -193,7 +202,7 @@ export function RecordModal(props: Props) {
         start_at: startAt,
         end_at: endAt,
       }
-      const created = await apiPost<Experiment>('/experiments', payload)
+      const created = await createExperiment(payload as unknown as Record<string, unknown>)
       setExperiments((xs) => [created, ...xs])
       setExperimentId(created.id)
       setShowCreateExperiment(false)
@@ -252,13 +261,13 @@ export function RecordModal(props: Props) {
           setErr('缺少要编辑的记录。')
           return
         }
-        const updated = await apiPatch<TrialRecord>(`/records/${record.id}`, payload)
+        const updated = await updateRecord(record.id, payload)
         setSuccess('保存成功')
         setTimeout(() => setSuccess(null), 1500)
         onSaved({ experimentId: experimentId!, recordId: updated.id })
         onClose()
       } else {
-        const created = await apiPost<TrialRecord>('/records', payload)
+        const created = await createRecord(payload)
         setSuccess('保存成功')
         setTimeout(() => setSuccess(null), 1500)
         onSaved({ experimentId: experimentId!, recordId: created.id })

@@ -72,7 +72,7 @@ export function AppShell() {
               退出
             </button>
           </div>
-          <div style={{ marginTop: 8 }}>接口端口：8013（开发）</div>
+          <div style={{ marginTop: 8 }}>数据层：Supabase</div>
         </div>
       </aside>
 

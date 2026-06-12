@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ApiError, apiGet } from '../lib/api'
-import type { AuditEvent, AuditEventList } from '../lib/types'
+import { ApiError, listAuditEvents } from '../lib/data'
+import type { AuditEvent } from '../lib/types'
 
 function humanizeApiError(e: unknown, action: string): string {
   if (!(e instanceof ApiError)) return `${action}失败：${String(e)}`
-  const d: any = e.detail
+  const d = e.detail as unknown
   const rawDetail =
     typeof d === 'string'
       ? d
       : d && typeof d === 'object' && 'detail' in d
-        ? (d.detail as unknown)
+        ? (d as { detail?: unknown }).detail
         : d
   if (typeof rawDetail === 'string' && rawDetail) return `${action}失败：${rawDetail}`
   return `${action}失败：HTTP ${e.status}`
@@ -106,7 +106,7 @@ function toDiffList(diff: unknown): Array<{ field: string; from: unknown; to: un
   if (!diff || typeof diff !== 'object') return []
   const out: Array<{ field: string; from: unknown; to: unknown }> = []
   for (const [k, v] of Object.entries(diff as Record<string, unknown>)) {
-    if (v && typeof v === 'object' && 'from' in (v as any) && 'to' in (v as any)) {
+    if (v && typeof v === 'object' && 'from' in v && 'to' in v) {
       const d = v as DiffItem
       out.push({ field: k, from: d.from, to: d.to })
     }
@@ -129,24 +129,24 @@ export function AuditEventsPage() {
 
   const [selected, setSelected] = useState<AuditEvent | null>(null)
 
-  const qs = useMemo(() => {
-    const p = new URLSearchParams()
-    p.set('limit', '50')
-    p.set('offset', '0')
-    if (tsFrom.trim()) p.set('ts_from', new Date(tsFrom).toISOString())
-    if (tsTo.trim()) p.set('ts_to', new Date(tsTo).toISOString())
-    if (actorId.trim()) p.set('actor_id', actorId.trim())
-    if (action.trim()) p.set('action', action.trim())
-    if (entityType.trim()) p.set('entity_type', entityType.trim())
-    if (entityId.trim()) p.set('entity_id', entityId.trim())
-    return p.toString()
+  const filters = useMemo(() => {
+    return {
+      limit: 50,
+      offset: 0,
+      ts_from: tsFrom.trim() ? new Date(tsFrom).toISOString() : null,
+      ts_to: tsTo.trim() ? new Date(tsTo).toISOString() : null,
+      actor_id: actorId.trim() || null,
+      action: action.trim() || null,
+      entity_type: entityType.trim() || null,
+      entity_id: entityId.trim() || null,
+    }
   }, [action, actorId, entityId, entityType, tsFrom, tsTo])
 
   async function load() {
     setLoading(true)
     setErr(null)
     try {
-      const res = await apiGet<AuditEventList>(`/audit-events?${qs}`)
+      const res = await listAuditEvents(filters)
       setItems(res.items)
       setTotal(res.total)
     } catch (e) {
@@ -249,7 +249,7 @@ export function AuditEventsPage() {
                         {entityTypeLabel(x.entity_type)} #{x.entity_id}
                       </td>
                       <td>{x.actor_name ?? x.actor_id ?? '-'}</td>
-                      <td style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace' }}>
+                      <td style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }}>
                         {x.request_id ?? '-'}
                       </td>
                       <td style={{ whiteSpace: 'nowrap' }}>
@@ -293,7 +293,7 @@ export function AuditEventsPage() {
                 </div>
                 <div className="field">
                   <div className="label">请求ID</div>
-                  <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace' }}>
+                  <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }}>
                     {selected.request_id ?? '-'}
                   </div>
                 </div>

@@ -86,7 +86,7 @@
 
 ### 4.1 字段命名策略
 
-- **内部字段**：英文键（便于数据库/API/长期维护）
+- **内部字段**：英文键（便于数据库/RPC/长期维护）
 - **界面显示**：中文标签
 
 ### 4.2 `T10/T90` 输入与存储
@@ -160,14 +160,19 @@
 
 ## 7. 数据与接口（研发对接）
 
-- 数据库存储建议：PostgreSQL
-- 核心表建议：
+- 数据库存储：Supabase Postgres
+- 认证：Supabase Auth
+- 权限：RLS policy + SQL RPC
+- 核心表：
+  - `profiles`
+  - `process_types`
   - `experiments`
   - `records`
-  - `curing_agents`、`curing_agent_versions`（可选）、`curing_agent_items`
-  - `materials`、`material_categories`（可选）
-- 导出接口：`GET /records/export.csv`（按筛选条件导出）
-- 接口校验（后端必须做，避免前端绕过）：
+  - `curing_agents`
+  - `materials`
+  - `audit_events`
+- 导出：Supabase RPC 返回 rowset，前端在浏览器生成 CSV/ZIP
+- 校验（数据库/RPC 必须做，避免前端绕过）：
   - `curing_agent_a_id`、`curing_agent_b_id` **必填**（未知时使用字典项“未知”）
   - `ratio_a_pct`、`ratio_b_pct`：范围 0–100，且 **`ratio_a_pct + ratio_b_pct < 100`**
   - `t10_sec`、`t90_sec`：能解析为整数秒；（如启用约束）需 `<=300`
@@ -179,7 +184,7 @@
 - 在 Experiment 内能新增多条 Record，且“复制上一条”可用
 - `T10/T90` 任意支持格式能解析并存为秒；非法输入无法保存
 - 气泡只能 0–5
-- 比例只能输入百分数 0–100，且 **A%+B%<100**；前端与后端校验一致，绕过前端提交也会被后端拒绝
+- 比例只能输入百分数 0–100，且 **A%+B%<100**；前端与数据库/RPC 校验一致，绕过前端提交也会被拒绝
 - 硫化剂 A/B 不允许为空；可选“未知”，并且 seed 中始终存在该字典项
 - Record 检索页能按硫化剂与指标区间过滤，结果正确
 - CSV 导出字段固定、包含必要 meta 与 record 字段
@@ -187,7 +192,7 @@
 ## 9. 里程碑（建议）
 
 - **第 1 周**：确定字段口径 + 原型（页面结构/交互）
-- **第 2–3 周**：后端数据表 + API + seed 导入（硫化剂/物料字典）
+- **第 2–3 周**：Supabase schema + RLS/RPC + seed 导入（硫化剂/物料字典）
 - **第 3–4 周**：前端录入（Experiment/Record）+ 检索 + 导出
 - **第 5 周**：打磨（复制录入、校验提示、性能）+ 上线
 

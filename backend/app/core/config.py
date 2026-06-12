@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # Auth (public internet)
     session_cookie_name: str = "sid"
     csrf_cookie_name: str = "csrf_token"
+    # Preferred: seconds-based TTL for fine-grained control.
+    # Example: 30 minutes = 1800
+    session_ttl_seconds: int = 1800
+    # Legacy (kept for backward compatibility with existing .env):
+    # Example: 14 days = 14
     session_ttl_days: int = 14
     cookie_secure: bool = False  # set True behind HTTPS in prod
     cookie_samesite: str = "lax"  # lax|strict|none

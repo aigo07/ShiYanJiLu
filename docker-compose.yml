@@ -9,6 +9,36 @@ services:
       - "5432:5432"
     volumes:
       - shiyanjilu_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shiyanjilu -d shiyanjilu"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ./backend
+    environment:
+      # Connect to the dockerized Postgres (service name: db)
+      DATABASE_URL: postgresql+psycopg://shiyanjilu:shiyanjilu@db:5432/shiyanjilu
+      # Fixed 30-minute sessions unless overridden
+      SESSION_TTL_SECONDS: "1800"
+      # In production behind HTTPS, set COOKIE_SECURE=true and configure domain/samesite as needed
+      COOKIE_SECURE: "false"
+      COOKIE_SAMESITE: "lax"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: ./frontend
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
 
   loki:
     image: grafana/loki:2.9.8

@@ -70,17 +70,25 @@ def _csrf_cookie_params() -> dict:
         "path": "/",
     }
 
+def _session_ttl_seconds() -> int:
+    # Prefer fine-grained seconds TTL; fall back to legacy days if needed.
+    seconds = int(getattr(settings, "session_ttl_seconds", 0) or 0)
+    if seconds > 0:
+        return seconds
+    days = int(getattr(settings, "session_ttl_days", 14) or 14)
+    return days * 24 * 60 * 60
+
 
 def issue_csrf_token(response: Response) -> str:
     token = secrets.token_urlsafe(24)
-    response.set_cookie(settings.csrf_cookie_name, token, max_age=60 * 60 * 24 * settings.session_ttl_days, **_csrf_cookie_params())
+    response.set_cookie(settings.csrf_cookie_name, token, max_age=_session_ttl_seconds(), **_csrf_cookie_params())
     return token
 
 
 def create_session(db: Session, *, user: User, request: Request, response: Response) -> None:
     token = secrets.token_urlsafe(32)
     token_hash = _hash_token(token)
-    ttl = timedelta(days=int(settings.session_ttl_days))
+    ttl = timedelta(seconds=_session_ttl_seconds())
     exp = _now() + ttl
     s = DbSession(
         user_id=user.id,

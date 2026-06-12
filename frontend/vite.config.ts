@@ -4,17 +4,5 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  server: {
-    allowedHosts: [
-      'calculated-thoughts-locale-prairie.trycloudflare.com',
-    ],
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:8013',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-      },
-    },
-  },
+  // Docker 部署下由 nginx 反代 /api，不需要 dev server proxy 配置。
 })

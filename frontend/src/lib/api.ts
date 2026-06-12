@@ -14,6 +14,34 @@ export class ApiError extends Error {
   }
 }
 
+const AUTH_EXPIRED_KEY = 'auth.expired_message'
+let redirectingToLogin = false
+
+function handleUnauthorized() {
+  if (redirectingToLogin) return
+  redirectingToLogin = true
+  try {
+    // Let the login page show a friendly banner after redirect.
+    sessionStorage.setItem(AUTH_EXPIRED_KEY, '会话已过期，请重新登录。')
+  } catch {
+    // ignore
+  }
+  if (window.location.pathname !== '/login') {
+    window.location.replace('/login')
+  }
+}
+
+export function consumeAuthExpiredMessage(): string | null {
+  try {
+    const msg = sessionStorage.getItem(AUTH_EXPIRED_KEY)
+    if (!msg) return null
+    sessionStorage.removeItem(AUTH_EXPIRED_KEY)
+    return msg
+  } catch {
+    return null
+  }
+}
+
 async function parseJsonSafe(res: Response): Promise<unknown> {
   const text = await res.text()
   if (!text) return null
@@ -31,6 +59,7 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   })
   if (!res.ok) {
+    if (res.status === 401) handleUnauthorized()
     const detail = await parseJsonSafe(res)
     throw new ApiError('Request failed', res.status, detail)
   }
@@ -46,6 +75,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
+    if (res.status === 401) handleUnauthorized()
     const detail = await parseJsonSafe(res)
     throw new ApiError('Request failed', res.status, detail)
   }
@@ -61,6 +91,7 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
+    if (res.status === 401) handleUnauthorized()
     const detail = await parseJsonSafe(res)
     throw new ApiError('Request failed', res.status, detail)
   }
@@ -75,6 +106,7 @@ export async function apiDelete(path: string): Promise<void> {
     headers: { ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
   })
   if (!res.ok) {
+    if (res.status === 401) handleUnauthorized()
     const detail = await parseJsonSafe(res)
     throw new ApiError('Request failed', res.status, detail)
   }

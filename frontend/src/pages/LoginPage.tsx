@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ApiError } from '../lib/api'
+import { ApiError, consumeAuthExpiredMessage } from '../lib/api'
 import { useAuth } from '../lib/auth'
 
 function humanize(e: unknown) {
@@ -19,7 +19,7 @@ export function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
+  const [err, setErr] = useState<string | null>(() => consumeAuthExpiredMessage())
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()

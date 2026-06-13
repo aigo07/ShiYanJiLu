@@ -98,7 +98,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm ci
+        run: npm install
 
       - name: Lint frontend
         working-directory: frontend

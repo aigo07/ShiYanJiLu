@@ -1,113 +1,138 @@
-# Cloudflare + Supabase Deployment
+# CloudBase Deployment
 
 本项目部署为：
 
-- Supabase：Auth、Postgres、RLS、RPC、migrations。
-- Cloudflare Pages：托管 `frontend/dist` 静态前端。
-- GitHub Actions：推送 `main` 或手动触发时，先部署 Supabase migrations，再构建并发布 Pages。
+- CloudBase：Auth、云数据库、普通云函数。
+- CloudBase 静态托管：托管 `frontend/dist` 静态前端。
+- GitHub Actions：推送 `main` 或手动触发时，先部署 CloudBase 后端，再构建并发布静态托管。
 
 ## Current Production
 
-- Supabase project ref：`tvcfwcjgqkmjsxrnlham`
-- Supabase URL：`https://tvcfwcjgqkmjsxrnlham.supabase.co`
-- Cloudflare account id：`42d55b20061b8fcaed0fbf389a55e7d4`
-- Cloudflare Pages project：`shiyanjilu`
-- Cloudflare Pages URL：`https://shiyanjilu.pages.dev`
+- CloudBase env id：`shiyanjilu-d0gqg419l4e71bc14`
+- CloudBase region：`ap-shanghai`
+- CloudBase function：`shiyanjilu-api`
+- CloudBase HTTP API base URL：`https://shiyanjilu-d0gqg419l4e71bc14.api.tcloudbasegateway.com`
+- CloudBase static hosting URL：`https://shiyanjilu-d0gqg419l4e71bc14-1257062913.tcloudbaseapp.com`
 
-## 1. Supabase project
+## 1. CloudBase Environment
 
-当前生产项目已经创建。只有在需要重建环境时，才执行创建新项目命令。
+在腾讯云 CloudBase 控制台创建环境，地域使用 `ap-shanghai`（上海）。启用：
 
-创建新项目：
+- 登录认证：邮箱/密码登录。
+- 云数据库集合：由 `backend npm run seed` 自动创建。
+- 普通云函数：由 GitHub Actions 按 `backend/cloudbaserc.json` 部署 `shiyanjilu-api`。
+- 静态托管：发布 `frontend/dist`。
 
-```powershell
-supabase projects create shiyanjilu --org-id shwzkquehzcmwwebkhqf --db-password "<strong-db-password>" --region "<region>"
-```
-
-已有项目或 Dashboard 创建项目后，在仓库根目录执行：
-
-```powershell
-supabase link --project-ref tvcfwcjgqkmjsxrnlham --password "<strong-db-password>"
-supabase db push --password "<strong-db-password>" --yes
-```
-
-获取前端需要的 publishable/anon key：
+本地初始化集合和 seed：
 
 ```powershell
-supabase projects api-keys --project-ref tvcfwcjgqkmjsxrnlham
+cd backend
+$env:CLOUDBASE_ENV_ID = "<cloudbase-env-id>"
+$env:TENCENTCLOUD_SECRETID = "<secret-id>"
+$env:TENCENTCLOUD_SECRETKEY = "<secret-key>"
+npm ci
+npm run build
+npm run seed
 ```
 
-生产环境首个管理员需要先在 Supabase Auth 创建用户，再执行：
+首个管理员：
 
-```sql
-update public.profiles
-set role = 'admin', display_name = '管理员'
-where email = '<admin-email>';
+```powershell
+$env:BOOTSTRAP_ADMIN_EMAILS = "admin@example.com"
 ```
 
-## 2. Cloudflare Pages project
+该邮箱用户首次登录并访问 API 后，`profiles` 集合会自动创建 `admin` 角色记录。后续角色可在 `profiles` 集合中调整为 `admin`、`auditor`、`editor` 或 `viewer`。
 
-当前生产 Pages project 已经创建。只有在需要重建或手动发布时，才需要本机登录 Cloudflare：
+## 2. CloudBase Function
+
+本地手动部署：
+
+```powershell
+cd backend
+$env:CLOUDBASE_ENV_ID = "<cloudbase-env-id>"
+$env:TENCENTCLOUD_SECRETID = "<secret-id>"
+$env:TENCENTCLOUD_SECRETKEY = "<secret-key>"
+$env:BOOTSTRAP_ADMIN_EMAILS = "admin@example.com"
+npm ci
+npm run build
+npx --yes @cloudbase/cli fn deploy shiyanjilu-api --yes
+```
+
+前端通过 CloudBase HTTP API 调用普通云函数，`VITE_API_BASE_URL` 写环境 API 网关基础域名：
+
+```text
+https://<cloudbase-env-id>.api.tcloudbasegateway.com
+```
+
+国内上海环境 `shiyanjilu-d0gqg419l4e71bc14` 对应：
+
+```text
+https://shiyanjilu-d0gqg419l4e71bc14.api.tcloudbasegateway.com
+```
+
+`backend/cloudbaserc.json` 会把函数固定为普通云函数，并随部署写入运行时环境变量：
+
+- `CLOUDBASE_ENV_ID`
+- `BOOTSTRAP_ADMIN_EMAILS`
+
+## 3. CloudBase Static Hosting
+
+本地手动发布前端：
 
 ```powershell
 cd frontend
-npx --yes wrangler@4 login
-```
-
-重建 Pages 项目：
-
-```powershell
-npx --yes wrangler@4 pages project create shiyanjilu --production-branch main
-```
-
-首次手动发布可执行：
-
-```powershell
-$env:VITE_SUPABASE_URL = "https://<project-ref>.supabase.co"
-$env:VITE_SUPABASE_ANON_KEY = "<supabase-publishable-or-anon-key>"
+$env:VITE_CLOUDBASE_ENV_ID = "shiyanjilu-d0gqg419l4e71bc14"
+$env:VITE_CLOUDBASE_REGION = "ap-shanghai"
+$env:VITE_API_BASE_URL = "https://shiyanjilu-d0gqg419l4e71bc14.api.tcloudbasegateway.com"
+$env:VITE_CLOUDBASE_FUNCTION_NAME = "shiyanjilu-api"
 npm ci
+npm run lint
 npm run build
-npx --yes wrangler@4 pages deploy dist --project-name shiyanjilu --branch main
+npx --yes @cloudbase/cli hosting deploy dist -e shiyanjilu-d0gqg419l4e71bc14 --yes
 ```
 
-Cloudflare Pages 会自动使用 `frontend/public/_redirects` 支持 React Router 的 SPA fallback。
+React Router 使用 History mode。CloudBase 静态托管需要把错误文档配置为 `index.html`，否则直接刷新或访问子路由会返回对象存储 404。可在控制台进入：
 
-## 3. 配置 GitHub Actions secrets
+```text
+https://tcb.cloud.tencent.com/dev?envId=shiyanjilu-d0gqg419l4e71bc14#/static-hosting
+```
+
+检查网站配置：
+
+- 默认首页：`index.html`
+- 错误文档：`index.html`
+
+## 4. GitHub Actions Secrets
 
 在 GitHub 仓库中设置以下 secrets：
 
 ```powershell
-gh secret set SUPABASE_ACCESS_TOKEN
-gh secret set SUPABASE_PROJECT_REF --body "<project-ref>"
-gh secret set SUPABASE_DB_PASSWORD
+gh secret set TENCENTCLOUD_SECRETID --body "<secret-id>"
+gh secret set TENCENTCLOUD_SECRETKEY
+gh secret set CLOUDBASE_ENV_ID --body "shiyanjilu-d0gqg419l4e71bc14"
+gh secret set CLOUDBASE_REGION --body "ap-shanghai"
+gh secret set BOOTSTRAP_ADMIN_EMAILS --body "admin@example.com"
 
-gh secret set VITE_SUPABASE_URL --body "https://<project-ref>.supabase.co"
-gh secret set VITE_SUPABASE_ANON_KEY --body "<supabase-publishable-or-anon-key>"
-
-gh secret set CLOUDFLARE_ACCOUNT_ID --body "<cloudflare-account-id>"
-gh secret set CLOUDFLARE_API_TOKEN
-gh secret set CLOUDFLARE_PAGES_PROJECT_NAME --body "shiyanjilu"
+gh secret set VITE_CLOUDBASE_ENV_ID --body "shiyanjilu-d0gqg419l4e71bc14"
+gh secret set VITE_CLOUDBASE_REGION --body "ap-shanghai"
+gh secret set VITE_CLOUDBASE_ACCESS_KEY --body "<cloudbase-publishable-key>"
+gh secret set VITE_API_BASE_URL --body "https://shiyanjilu-d0gqg419l4e71bc14.api.tcloudbasegateway.com"
+gh secret set VITE_CLOUDBASE_FUNCTION_NAME --body "shiyanjilu-api"
 ```
 
-Cloudflare API token 至少需要 Cloudflare Pages edit 权限；如果要在同一自动化中绑定自定义域名，还需要对应 zone 的 DNS edit 权限。
+`VITE_CLOUDBASE_ACCESS_KEY` 是 CloudBase publishable key，不是腾讯云 SecretKey。可通过 CloudBase MCP `manageAppAuth(action="ensurePublishableKey")` 或控制台获取。
 
-## 4. 配置 Supabase Auth URL
-
-Cloudflare Pages 发布后，在 Supabase Dashboard 设置：
-
-- Site URL：`https://shiyanjilu.pages.dev`
-- Redirect URLs：`https://shiyanjilu.pages.dev/*`
-
-如果后续绑定自定义域名，也把自定义域名加入 Redirect URLs。
-
-## 5. 自动部署
+## 5. Automatic Deployment
 
 推送到 `main` 会触发 `.github/workflows/deploy.yml`：
 
-1. `supabase db push --yes`
-2. `npm ci`
-3. `npm run lint`
-4. `npm run build`
-5. `wrangler pages deploy dist`
+1. `npm ci` in `backend`
+2. `npm run build`
+3. `npm run seed`
+4. `tcb fn deploy shiyanjilu-api --yes`
+5. `npm ci` in `frontend`
+6. `npm run lint`
+7. `npm run build`
+8. `tcb hosting deploy dist`
 
 也可以在 GitHub Actions 页面手动运行 `Deploy` workflow。

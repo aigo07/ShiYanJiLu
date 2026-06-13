@@ -1,0 +1,29 @@
+{
+  "version": "2.0",
+  "envId": "{{env.CLOUDBASE_ENV_ID}}",
+  "functionRoot": "./",
+  "functions": [
+    {
+      "name": "shiyanjilu-api",
+      "type": "Event",
+      "dir": "./",
+      "handler": "index.main",
+      "runtime": "Nodejs18.15",
+      "timeout": 30,
+      "memorySize": 512,
+      "installDependency": true,
+      "envVariables": {
+        "CLOUDBASE_ENV_ID": "{{env.CLOUDBASE_ENV_ID}}",
+        "BOOTSTRAP_ADMIN_EMAILS": "{{env.BOOTSTRAP_ADMIN_EMAILS}}"
+      },
+      "ignore": [
+        "node_modules",
+        "node_modules/**/*",
+        "src",
+        "src/**/*",
+        "tsconfig.json",
+        "*.tsbuildinfo"
+      ]
+    }
+  ]
+}

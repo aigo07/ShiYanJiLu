@@ -1,0 +1,12 @@
+{
+  "name": "shiyanjilu",
+  "private": true,
+  "scripts": {
+    "backend:build": "npm --prefix backend run build",
+    "seed": "npm --prefix backend run seed",
+    "deploy:backend": "npm --prefix backend run deploy",
+    "frontend:lint": "npm --prefix frontend run lint",
+    "frontend:build": "npm --prefix frontend run build",
+    "deploy:frontend": "npm --prefix frontend run build && tcb hosting deploy frontend/dist -e shiyanjilu-d0gqg419l4e71bc14 --yes"
+  }
+}

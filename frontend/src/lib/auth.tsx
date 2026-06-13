@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import type { User } from '@supabase/supabase-js'
-import { supabase } from './supabase'
+import { cloudbaseAuth } from './cloudbase'
 import { ApiError, toApiError } from './data'
+import { apiRequest } from './api'
 
 export type AuthUser = {
   id: string
@@ -28,23 +28,19 @@ type Ctx = {
 
 const AuthContext = createContext<Ctx | null>(null)
 
-async function readProfile(authUser: User): Promise<AuthUser> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id,email,display_name,role,is_active')
-    .eq('id', authUser.id)
-    .single()
-
-  if (error) throw toApiError(error, '加载用户资料失败')
-  const profile = data as ProfileRow
+function toAuthUser(profile: ProfileRow): AuthUser {
   if (!profile.is_active) throw new ApiError('账号已被停用', 403, { detail: '账号已被停用' })
-
   return {
     id: profile.id,
-    email: profile.email || authUser.email || '',
+    email: profile.email || '',
     display_name: profile.display_name,
     role: profile.role,
   }
+}
+
+async function readProfile(): Promise<AuthUser> {
+  const profile = await apiRequest<ProfileRow>('/me')
+  return toAuthUser(profile)
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -54,13 +50,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function refresh() {
     setLoading(true)
     try {
-      const { data, error } = await supabase.auth.getUser()
+      const { data, error } = await cloudbaseAuth.getSession()
       if (error) throw toApiError(error, '恢复登录态失败')
-      if (!data.user) {
+      if (!data.session) {
         setUser(null)
         return
       }
-      setUser(await readProfile(data.user))
+      setUser(await readProfile())
     } catch {
       setUser(null)
     } finally {
@@ -69,15 +65,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function login(email: string, password: string) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await cloudbaseAuth.signInWithPassword({ email, password })
     if (error) throw toApiError(error, '登录失败')
     if (!data.user) throw new ApiError('登录失败', 401, { detail: '登录失败' })
-    setUser(await readProfile(data.user))
+    setUser(await readProfile())
   }
 
   async function logout() {
     try {
-      await supabase.auth.signOut()
+      await cloudbaseAuth.signOut()
     } finally {
       setUser(null)
     }
@@ -85,18 +81,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     void refresh()
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) {
+    const unsubscribe: unknown = cloudbaseAuth.onAuthStateChange((_event: string, session: unknown) => {
+      if (!session) {
         setUser(null)
         setLoading(false)
         return
       }
-      void readProfile(session.user)
+      void readProfile()
         .then(setUser)
         .catch(() => setUser(null))
         .finally(() => setLoading(false))
     })
-    return () => data.subscription.unsubscribe()
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe()
+    }
   }, [])
 
   const value = useMemo<Ctx>(() => ({ loading, user, refresh, login, logout }), [loading, user])

@@ -47,7 +47,7 @@ export function CuringAgentsPage() {
   function humanizeApiError(e: unknown, action: string): string {
     if (!(e instanceof ApiError)) return `${action}失败：${String(e)}`
 
-    // Supabase errors are normalized to the same detail shape used by the UI.
+    // Backend errors are normalized to the same detail shape used by the UI.
     const d = e.detail as unknown
     const rawDetail =
       typeof d === 'string'

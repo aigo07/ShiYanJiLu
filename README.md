@@ -5,38 +5,45 @@
 当前架构：
 
 - Frontend：React + TypeScript + Vite
-- Backend：Supabase Auth + Postgres + RLS + RPC/Data API
-- Hosting：Cloudflare Pages
+- Backend：CloudBase Auth + CloudBase 云数据库 + CloudBase 普通云函数
+- Hosting：CloudBase 静态托管
 - CI/CD：GitHub Actions
+
+CloudBase 云函数配置由 `backend/cloudbaserc.json` 管理，包括函数类型、入口、运行时、内存、超时和运行时环境变量。前端通过 CloudBase HTTP API 调用普通云函数。
 
 生产地址：
 
-- Cloudflare Pages：https://shiyanjilu.pages.dev
-- Supabase project：`tvcfwcjgqkmjsxrnlham`
+- CloudBase 静态托管：https://shiyanjilu-d0gqg419l4e71bc14-1257062913.tcloudbaseapp.com
+- CloudBase region：`ap-shanghai`
 
 ## Local Development
 
-启动本地 Supabase：
+安装后端依赖并构建：
 
 ```powershell
-supabase start
-supabase db reset
-supabase status
+cd backend
+npm install
+npm run build
 ```
 
 复制前端环境变量：
 
 ```powershell
-cd frontend
+cd ..\frontend
 Copy-Item .env.example .env
 ```
 
-把 `supabase status` 里的本地 URL 和 publishable/anon key 写入 `frontend/.env`：
+填写 `frontend/.env`：
 
 ```powershell
-VITE_SUPABASE_URL=http://127.0.0.1:54321
-VITE_SUPABASE_ANON_KEY=<local-publishable-or-anon-key>
+VITE_CLOUDBASE_ENV_ID=<cloudbase-env-id>
+VITE_CLOUDBASE_REGION=ap-shanghai
+VITE_CLOUDBASE_ACCESS_KEY=<cloudbase-publishable-key>
+VITE_API_BASE_URL=https://<cloudbase-env-id>.api.tcloudbasegateway.com
+VITE_CLOUDBASE_FUNCTION_NAME=shiyanjilu-api
 ```
+
+`VITE_CLOUDBASE_ACCESS_KEY` 是 CloudBase publishable key，不是腾讯云 SecretKey。
 
 启动前端：
 
@@ -51,33 +58,28 @@ npm run dev -- --host 0.0.0.0 --port 5173
 http://localhost:5173
 ```
 
-创建 Supabase Auth 用户后，可在 SQL Editor 提升首个管理员：
-
-```sql
-update public.profiles
-set role = 'admin', display_name = '管理员'
-where email = 'admin@example.com';
-```
+首次管理员：在 CloudBase Auth 创建用户后，把邮箱加入后端环境变量 `BOOTSTRAP_ADMIN_EMAILS`，该用户首次访问 API 时会创建为 `admin`。后续可直接在 `profiles` 集合调整角色。
 
 ## Validation
 
 ```powershell
-supabase db reset
+cd backend
+npm run build
 
-cd frontend
+cd ..\frontend
 npm run lint
 npm run build
 ```
 
 ## Deployment
 
-部署到 Supabase + Cloudflare Pages 的完整流程见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+部署到 CloudBase 后端 + CloudBase 静态托管的完整流程见 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
 推送到 `main` 后，GitHub Actions 会：
 
-1. 执行 Supabase migrations。
-2. 安装前端依赖。
-3. 运行 lint 和 build。
-4. 发布 `frontend/dist` 到 Cloudflare Pages。
-
-数据库 schema、RLS、trigger、RPC、seed 都应通过 `supabase/migrations/` 管理，不在 Dashboard 直接修改生产 schema。
+1. 构建 CloudBase 普通云函数。
+2. 初始化 CloudBase 云数据库集合和 `process_types` seed。
+3. 部署 `shiyanjilu-api` 普通云函数。
+4. 安装前端依赖。
+5. 运行 lint 和 build。
+6. 发布 `frontend/dist` 到 CloudBase 静态托管。

@@ -62,7 +62,7 @@ export function LoginPage() {
             </div>
           </form>
           <div style={{ marginTop: 10, color: '#525252', fontSize: 12 }}>
-            提示：首次管理员需在 Supabase Auth 创建用户后，在 profiles 表中设置 admin 角色。
+            提示：首次管理员可通过后端 BOOTSTRAP_ADMIN_EMAILS 环境变量初始化。
           </div>
         </div>
       </div>

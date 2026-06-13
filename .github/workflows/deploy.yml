@@ -15,45 +15,64 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  supabase:
-    name: Deploy Supabase
+  cloudbase-backend:
+    name: Deploy CloudBase backend
     runs-on: ubuntu-latest
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      TENCENTCLOUD_SECRETID: ${{ secrets.TENCENTCLOUD_SECRETID }}
+      TENCENTCLOUD_SECRETKEY: ${{ secrets.TENCENTCLOUD_SECRETKEY }}
+      CLOUDBASE_ENV_ID: ${{ secrets.CLOUDBASE_ENV_ID }}
+      CLOUDBASE_REGION: ${{ secrets.CLOUDBASE_REGION }}
+      BOOTSTRAP_ADMIN_EMAILS: ${{ secrets.BOOTSTRAP_ADMIN_EMAILS }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          version: latest
-          github-token: ${{ github.token }}
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
 
-      - name: Check Supabase secrets
+      - name: Check CloudBase secrets
         run: |
-          test -n "$SUPABASE_ACCESS_TOKEN" || { echo "::error::Missing SUPABASE_ACCESS_TOKEN"; exit 1; }
-          test -n "$SUPABASE_PROJECT_REF" || { echo "::error::Missing SUPABASE_PROJECT_REF"; exit 1; }
-          test -n "$SUPABASE_DB_PASSWORD" || { echo "::error::Missing SUPABASE_DB_PASSWORD"; exit 1; }
+          test -n "$TENCENTCLOUD_SECRETID" || { echo "::error::Missing TENCENTCLOUD_SECRETID"; exit 1; }
+          test -n "$TENCENTCLOUD_SECRETKEY" || { echo "::error::Missing TENCENTCLOUD_SECRETKEY"; exit 1; }
+          test -n "$CLOUDBASE_ENV_ID" || { echo "::error::Missing CLOUDBASE_ENV_ID"; exit 1; }
 
-      - name: Link Supabase project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
 
-      - name: Push database migrations
-        run: supabase db push --password "$SUPABASE_DB_PASSWORD" --yes
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
 
-  cloudflare-pages:
-    name: Build and deploy Cloudflare Pages
+      - name: Seed CloudBase collections
+        working-directory: backend
+        run: npm run seed
+
+      - name: Login CloudBase CLI
+        run: npx --yes @cloudbase/cli login --apiKeyId "$TENCENTCLOUD_SECRETID" --apiKey "$TENCENTCLOUD_SECRETKEY"
+
+      - name: Deploy CloudBase function
+        working-directory: backend
+        run: npx --yes @cloudbase/cli fn deploy shiyanjilu-api -e "$CLOUDBASE_ENV_ID" --yes
+
+  cloudbase-hosting:
+    name: Build and deploy CloudBase hosting
     runs-on: ubuntu-latest
-    needs: supabase
+    needs: cloudbase-backend
     env:
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_PAGES_PROJECT_NAME: ${{ secrets.CLOUDFLARE_PAGES_PROJECT_NAME }}
-      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      TENCENTCLOUD_SECRETID: ${{ secrets.TENCENTCLOUD_SECRETID }}
+      TENCENTCLOUD_SECRETKEY: ${{ secrets.TENCENTCLOUD_SECRETKEY }}
+      CLOUDBASE_ENV_ID: ${{ secrets.CLOUDBASE_ENV_ID }}
+      VITE_CLOUDBASE_ENV_ID: ${{ secrets.VITE_CLOUDBASE_ENV_ID }}
+      VITE_CLOUDBASE_REGION: ${{ secrets.VITE_CLOUDBASE_REGION }}
+      VITE_CLOUDBASE_ACCESS_KEY: ${{ secrets.VITE_CLOUDBASE_ACCESS_KEY }}
+      VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+      VITE_CLOUDBASE_FUNCTION_NAME: ${{ secrets.VITE_CLOUDBASE_FUNCTION_NAME }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -65,13 +84,14 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Check Cloudflare and frontend secrets
+      - name: Check CloudBase and frontend secrets
         run: |
-          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing CLOUDFLARE_ACCOUNT_ID"; exit 1; }
-          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing CLOUDFLARE_API_TOKEN"; exit 1; }
-          test -n "$CLOUDFLARE_PAGES_PROJECT_NAME" || { echo "::error::Missing CLOUDFLARE_PAGES_PROJECT_NAME"; exit 1; }
-          test -n "$VITE_SUPABASE_URL" || { echo "::error::Missing VITE_SUPABASE_URL"; exit 1; }
-          test -n "$VITE_SUPABASE_ANON_KEY" || { echo "::error::Missing VITE_SUPABASE_ANON_KEY"; exit 1; }
+          test -n "$TENCENTCLOUD_SECRETID" || { echo "::error::Missing TENCENTCLOUD_SECRETID"; exit 1; }
+          test -n "$TENCENTCLOUD_SECRETKEY" || { echo "::error::Missing TENCENTCLOUD_SECRETKEY"; exit 1; }
+          test -n "$CLOUDBASE_ENV_ID" || { echo "::error::Missing CLOUDBASE_ENV_ID"; exit 1; }
+          test -n "$VITE_CLOUDBASE_ENV_ID" || { echo "::error::Missing VITE_CLOUDBASE_ENV_ID"; exit 1; }
+          test -n "$VITE_CLOUDBASE_ACCESS_KEY" || { echo "::error::Missing VITE_CLOUDBASE_ACCESS_KEY"; exit 1; }
+          test -n "$VITE_API_BASE_URL" || { echo "::error::Missing VITE_API_BASE_URL"; exit 1; }
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -85,11 +105,9 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Deploy Cloudflare Pages
+      - name: Login CloudBase CLI
+        run: npx --yes @cloudbase/cli login --apiKeyId "$TENCENTCLOUD_SECRETID" --apiKey "$TENCENTCLOUD_SECRETKEY"
+
+      - name: Deploy CloudBase static hosting
         working-directory: frontend
-        run: >
-          npx --yes wrangler@4 pages deploy dist
-          --project-name "$CLOUDFLARE_PAGES_PROJECT_NAME"
-          --branch "$GITHUB_REF_NAME"
-          --commit-hash "$GITHUB_SHA"
-          --commit-dirty=true
+        run: npx --yes @cloudbase/cli hosting deploy dist -e "$CLOUDBASE_ENV_ID" --yes

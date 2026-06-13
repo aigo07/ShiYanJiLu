@@ -1,0 +1,21 @@
+{
+  "name": "shiyanjilu-cloudbase-api",
+  "private": true,
+  "version": "0.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "seed": "node dist/seed.js",
+    "deploy": "npm run build && tcb fn deploy shiyanjilu-api --yes"
+  },
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.3",
+    "typescript": "~6.0.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -53,12 +53,15 @@ jobs:
         working-directory: backend
         run: npm run seed
 
+      - name: Install CloudBase CLI
+        run: npm install -g @cloudbase/cli
+
       - name: Login CloudBase CLI
-        run: npx --yes @cloudbase/cli login --apiKeyId "$TENCENTCLOUD_SECRETID" --apiKey "$TENCENTCLOUD_SECRETKEY"
+        run: tcb login --apiKeyId "$TENCENTCLOUD_SECRETID" --apiKey "$TENCENTCLOUD_SECRETKEY"
 
       - name: Deploy CloudBase function
         working-directory: backend
-        run: npx --yes @cloudbase/cli fn deploy shiyanjilu-api -e "$CLOUDBASE_ENV_ID" --yes
+        run: tcb fn deploy shiyanjilu-api -e "$CLOUDBASE_ENV_ID" --yes
 
   cloudbase-hosting:
     name: Build and deploy CloudBase hosting
@@ -105,9 +108,12 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      - name: Install CloudBase CLI
+        run: npm install -g @cloudbase/cli
+
       - name: Login CloudBase CLI
-        run: npx --yes @cloudbase/cli login --apiKeyId "$TENCENTCLOUD_SECRETID" --apiKey "$TENCENTCLOUD_SECRETKEY"
+        run: tcb login --apiKeyId "$TENCENTCLOUD_SECRETID" --apiKey "$TENCENTCLOUD_SECRETKEY"
 
       - name: Deploy CloudBase static hosting
         working-directory: frontend
-        run: npx --yes @cloudbase/cli hosting deploy dist -e "$CLOUDBASE_ENV_ID" --yes
+        run: tcb hosting deploy dist -e "$CLOUDBASE_ENV_ID" --yes
